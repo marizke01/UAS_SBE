@@ -125,7 +125,6 @@
                 <p>Amplang Tifanny dibuat dari ikan tenggiri pilihan dengan proses higienis, rasa gurih, dan tekstur renyah yang cocok untuk oleh-oleh atau stok camilan keluarga.</p>
                 <div class="hero-actions">
                     <a href="#products" class="cta-primary">Pesan Sekarang</a>
-                    <a href="https://wa.me/{{ $phone }}" class="cta-secondary">Konsultasi WhatsApp</a>
                 </div>
             </div>
             <div class="hero-product-wrap">
