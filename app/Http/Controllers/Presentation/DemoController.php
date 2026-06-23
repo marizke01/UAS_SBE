@@ -33,6 +33,18 @@ class DemoController extends Controller
 
         $totalTransactions = DB::table('sales')->where('sale_status', 'completed')->count();
         $totalStock = (int) DB::table('branch_stocks')->sum(DB::raw('stock - reserved_stock'));
+        $todayTransactions = DB::table('sales')
+            ->where('sale_status', 'completed')
+            ->whereDate('created_at', $today)
+            ->count();
+        $avgOrderValue = $totalTransactions > 0
+            ? (float) DB::table('sales')->where('sale_status', 'completed')->avg('grand_total')
+            : 0;
+        $monthProfit = (float) DB::table('sale_items as si')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'si.product_variant_id')
+            ->where('si.created_at', '>=', $monthStart)
+            ->sum(DB::raw('(si.price - COALESCE(pv.purchase_price, si.price * 0.6)) * si.qty'));
+        $invoiceCount = DB::table('invoices')->count();
 
         $lowStock = DB::table('branch_stocks as bs')
             ->join('product_variants as pv', 'pv.id', '=', 'bs.product_variant_id')
@@ -51,6 +63,7 @@ class DemoController extends Controller
 
         $chartLabels = [];
         $chartSales = [];
+        $chartTransactions = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
             $chartLabels[] = $date->translatedFormat('d M');
@@ -58,6 +71,10 @@ class DemoController extends Controller
                 ->whereDate('created_at', $date)
                 ->where('sale_status', 'completed')
                 ->sum('grand_total');
+            $chartTransactions[] = DB::table('sales')
+                ->whereDate('created_at', $date)
+                ->where('sale_status', 'completed')
+                ->count();
         }
 
         $bestProducts = DB::table('sale_items as si')
@@ -66,10 +83,13 @@ class DemoController extends Controller
             ->orderByDesc('total_qty')
             ->limit(5)
             ->get();
+        $pageTitle = 'Dashboard ERP';
 
         return view('admin.dashboard', compact(
             'todaySales', 'monthRevenue', 'totalTransactions', 'totalStock',
-            'lowStock', 'latestSales', 'chartLabels', 'chartSales', 'bestProducts'
+            'todayTransactions', 'avgOrderValue', 'monthProfit', 'invoiceCount',
+            'lowStock', 'latestSales', 'chartLabels', 'chartSales', 'chartTransactions',
+            'bestProducts', 'pageTitle'
         ));
     }
 
@@ -98,7 +118,12 @@ class DemoController extends Controller
             ->limit(50)
             ->get();
 
-        return view('admin.invoices', compact('invoices'));
+        $today = Carbon::today()->toDateString();
+        $monthStart = Carbon::today()->startOfMonth()->toDateString();
+        $monthEnd = Carbon::today()->toDateString();
+        $pageTitle = 'Invoice';
+
+        return view('admin.invoices', compact('invoices', 'today', 'monthStart', 'monthEnd', 'pageTitle'));
     }
 
     public function reports()
@@ -111,20 +136,140 @@ class DemoController extends Controller
             ->limit(14)
             ->get();
 
-        return view('admin.reports', compact('dailySales'));
+        $pageTitle = 'Laporan Bisnis';
+
+        return view('admin.reports', compact('dailySales', 'pageTitle'));
     }
 
     public function ai()
     {
         $products = $this->productRows();
-        $lowStock = $products->filter(fn ($row) => $row->stock <= $row->minimum_stock)->values();
+        $lowStock = $products->filter(fn ($row) => (int) $row->stock <= (int) $row->minimum_stock)->values();
+
+        $salesTrend = collect(range(13, 0))->map(function ($day) {
+            $date = Carbon::today()->subDays($day);
+            $row = DB::table('sales')
+                ->selectRaw('COUNT(*) as transactions, COALESCE(SUM(grand_total), 0) as revenue')
+                ->whereDate('created_at', $date)
+                ->where('sale_status', 'completed')
+                ->first();
+
+            return (object) [
+                'label' => $date->translatedFormat('d M'),
+                'date' => $date->toDateString(),
+                'transactions' => (int) $row->transactions,
+                'revenue' => (float) $row->revenue,
+            ];
+        });
+
+        $topProducts = DB::table('sale_items as si')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'si.product_variant_id')
+            ->select(
+                'si.product_name',
+                'si.variant_name',
+                DB::raw('SUM(si.qty) as total_qty'),
+                DB::raw('SUM(si.subtotal) as revenue'),
+                DB::raw('SUM((si.price - COALESCE(pv.purchase_price, si.price * 0.6)) * si.qty) as profit')
+            )
+            ->where('si.created_at', '>=', Carbon::today()->subDays(30))
+            ->groupBy('si.product_name', 'si.variant_name')
+            ->orderByDesc('total_qty')
+            ->limit(5)
+            ->get();
+
+        $slowProducts = $products->map(function ($product) {
+            $sold = (int) DB::table('sale_items')
+                ->where('product_variant_id', $product->id)
+                ->where('created_at', '>=', Carbon::today()->subDays(30))
+                ->sum('qty');
+
+            $product->sold_30_days = $sold;
+
+            return $product;
+        })->sortBy('sold_30_days')->take(5)->values();
+
+        $forecastProducts = $products->map(function ($product) {
+            $sold14Days = (int) DB::table('sale_items')
+                ->where('product_variant_id', $product->id)
+                ->where('created_at', '>=', Carbon::today()->subDays(14))
+                ->sum('qty');
+
+            $averageDaily = $sold14Days / 14;
+            $daysLeft = $averageDaily > 0 ? floor((int) $product->stock / $averageDaily) : null;
+            $recommendedRestock = max((int) $product->minimum_stock * 3, (int) ceil($averageDaily * 14 - (int) $product->stock));
+
+            $product->avg_daily_sales = $averageDaily;
+            $product->days_until_stockout = $daysLeft;
+            $product->recommended_restock = max(0, $recommendedRestock);
+
+            return $product;
+        })->sortBy(fn ($product) => $product->days_until_stockout ?? 9999)->values();
+
+        $totalRevenue = (float) DB::table('sales')->where('sale_status', 'completed')->sum('grand_total');
+        $totalTransactions = DB::table('sales')->where('sale_status', 'completed')->count();
+        $estimatedProfit = (float) DB::table('sale_items as si')
+            ->leftJoin('product_variants as pv', 'pv.id', '=', 'si.product_variant_id')
+            ->sum(DB::raw('(si.price - COALESCE(pv.purchase_price, si.price * 0.6)) * si.qty'));
+
         $avgDailyRevenue = (float) DB::table('sales')
             ->where('created_at', '>=', Carbon::today()->subDays(7))
+            ->where('sale_status', 'completed')
             ->sum('grand_total') / 7;
 
         $projection = $avgDailyRevenue * 7;
+        $insights = $this->businessInsights($topProducts, $slowProducts, $forecastProducts, $salesTrend, $projection);
+        $pageTitle = 'AI Analytics Dashboard';
 
-        return view('admin.ai', compact('products', 'lowStock', 'projection'));
+        return view('admin.ai', compact(
+            'products',
+            'lowStock',
+            'projection',
+            'salesTrend',
+            'topProducts',
+            'slowProducts',
+            'forecastProducts',
+            'totalRevenue',
+            'totalTransactions',
+            'estimatedProfit',
+            'insights',
+            'pageTitle'
+        ));
+    }
+
+    private function businessInsights($topProducts, $slowProducts, $forecastProducts, $salesTrend, float $projection)
+    {
+        $insights = [];
+        $currentWeek = (float) $salesTrend->slice(7)->sum('revenue');
+        $previousWeek = (float) $salesTrend->slice(0, 7)->sum('revenue');
+
+        if ($previousWeek > 0) {
+            $change = (($currentWeek - $previousWeek) / $previousWeek) * 100;
+            $direction = $change >= 0 ? 'meningkat' : 'menurun';
+            $insights[] = 'Penjualan minggu ini ' . $direction . ' ' . number_format(abs($change), 1, ',', '.') . '% dibanding minggu lalu.';
+        } elseif ($currentWeek > 0) {
+            $insights[] = 'Penjualan minggu ini mulai terbentuk dengan revenue Rp ' . number_format($currentWeek, 0, ',', '.') . '.';
+        }
+
+        if ($topProducts->isNotEmpty()) {
+            $top = $topProducts->first();
+            $insights[] = 'Produk ' . $top->product_name . ' ' . $top->variant_name . ' menjadi produk terlaris dengan ' . (int) $top->total_qty . ' pack terjual dalam 30 hari.';
+        }
+
+        $slow = $slowProducts->first();
+        if ($slow && (int) $slow->sold_30_days <= 2) {
+            $insights[] = 'Produk ' . $slow->name . ' ' . $slow->variant_name . ' memiliki penjualan rendah, disarankan promosi, bundling, atau sampling.';
+        }
+
+        $stockRisk = $forecastProducts->first(fn ($product) => $product->days_until_stockout !== null && $product->days_until_stockout <= 7);
+        if ($stockRisk) {
+            $insights[] = 'Stok ' . $stockRisk->name . ' ' . $stockRisk->variant_name . ' diperkirakan habis dalam ' . (int) $stockRisk->days_until_stockout . ' hari.';
+        }
+
+        if ($projection > 0) {
+            $insights[] = 'Forecast revenue 7 hari ke depan sekitar Rp ' . number_format($projection, 0, ',', '.') . ' berdasarkan moving average.';
+        }
+
+        return collect($insights)->whenEmpty(fn ($rows) => $rows->push('Belum cukup data transaksi untuk insight otomatis. Lakukan checkout POS agar AI Analytics membaca pola penjualan.'));
     }
 
     private function productRows()
@@ -134,14 +279,14 @@ class DemoController extends Controller
             ->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
             ->leftJoin('branch_stocks as bs', 'bs.product_variant_id', '=', 'pv.id')
             ->select(
-                'pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode',
+                'pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram',
                 'pv.selling_price', 'pv.reseller_price', 'pv.purchase_price', 'pv.minimum_stock',
                 DB::raw('COALESCE(SUM(bs.stock - bs.reserved_stock), 0) as stock'),
                 DB::raw('COALESCE(c.name, "Produk") as category_name')
             )
             ->where('p.status', 'active')
             ->where('pv.status', 'active')
-            ->groupBy('pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.selling_price', 'pv.reseller_price', 'pv.purchase_price', 'pv.minimum_stock', 'c.name')
+            ->groupBy('pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram', 'pv.selling_price', 'pv.reseller_price', 'pv.purchase_price', 'pv.minimum_stock', 'c.name')
             ->orderBy('pv.weight_gram')
             ->get();
     }

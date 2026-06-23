@@ -13,18 +13,23 @@ class PosController extends Controller
 {
     public function index()
     {
+        return $this->showPos('admin.pos');
+    }
+
+    private function showPos(string $view)
+    {
         $products = DB::table('product_variants as pv')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
             ->leftJoin('branch_stocks as bs', function ($join) {
                 $join->on('bs.product_variant_id', '=', 'pv.id')->where('bs.branch_id', '=', 1);
             })
-            ->select('pv.id', 'p.name', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.selling_price', 'pv.minimum_stock', DB::raw('COALESCE(bs.stock - bs.reserved_stock, 0) as stock'))
+            ->select('pv.id', 'p.name', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram', 'pv.selling_price', 'pv.minimum_stock', DB::raw('COALESCE(bs.stock - bs.reserved_stock, 0) as stock'))
             ->where('p.status', 'active')
             ->where('pv.status', 'active')
             ->orderBy('pv.weight_gram')
             ->get();
 
-        return view('admin.pos', compact('products'));
+        return view($view, compact('products'));
     }
 
     public function checkout(Request $request)
@@ -35,6 +40,7 @@ class PosController extends Controller
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'tax' => ['nullable', 'numeric', 'min:0'],
+            'checkout_context' => ['nullable', 'in:admin'],
         ]);
 
         $items = json_decode($data['cart_payload'], true);
