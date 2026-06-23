@@ -68,8 +68,15 @@ class DemoController extends Controller
             ->get();
 
         return view('admin.dashboard', compact(
-            'todaySales', 'monthRevenue', 'totalTransactions', 'totalStock',
-            'lowStock', 'latestSales', 'chartLabels', 'chartSales', 'bestProducts'
+            'todaySales',
+            'monthRevenue',
+            'totalTransactions',
+            'totalStock',
+            'lowStock',
+            'latestSales',
+            'chartLabels',
+            'chartSales',
+            'bestProducts'
         ));
     }
 
@@ -79,8 +86,17 @@ class DemoController extends Controller
             ->join('branches as b', 'b.id', '=', 'bs.branch_id')
             ->join('product_variants as pv', 'pv.id', '=', 'bs.product_variant_id')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
-            ->leftJoin('suppliers as s', 's.id', '=', 'pv.supplier_id')
-            ->select('bs.*', 'b.name as branch_name', 'p.name as product_name', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.minimum_stock', 'pv.selling_price', 'pv.reseller_price', 's.name as supplier_name')
+            ->select(
+                'bs.*',
+                'b.name as branch_name',
+                'p.name as product_name',
+                'pv.variant_name',
+                'pv.sku',
+                'pv.barcode',
+                'pv.minimum_stock',
+                'pv.selling_price',
+                'pv.reseller_price'
+            )
             ->orderBy('p.name')
             ->orderBy('pv.weight_gram')
             ->get();
@@ -117,7 +133,7 @@ class DemoController extends Controller
     public function ai()
     {
         $products = $this->productRows();
-        $lowStock = $products->filter(fn ($row) => $row->stock <= $row->minimum_stock)->values();
+        $lowStock = $products->filter(fn($row) => $row->stock <= $row->minimum_stock)->values();
         $avgDailyRevenue = (float) DB::table('sales')
             ->where('created_at', '>=', Carbon::today()->subDays(7))
             ->sum('grand_total') / 7;
@@ -134,8 +150,17 @@ class DemoController extends Controller
             ->leftJoin('categories as c', 'c.id', '=', 'p.category_id')
             ->leftJoin('branch_stocks as bs', 'bs.product_variant_id', '=', 'pv.id')
             ->select(
-                'pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode',
-                'pv.selling_price', 'pv.reseller_price', 'pv.purchase_price', 'pv.minimum_stock',
+                'pv.id',
+                'p.name',
+                'p.slug',
+                'p.short_description',
+                'pv.variant_name',
+                'pv.sku',
+                'pv.barcode',
+                'pv.selling_price',
+                'pv.reseller_price',
+                'pv.purchase_price',
+                'pv.minimum_stock',
                 DB::raw('COALESCE(SUM(bs.stock - bs.reserved_stock), 0) as stock'),
                 DB::raw('COALESCE(c.name, "Produk") as category_name')
             )

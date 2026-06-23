@@ -31,7 +31,6 @@ DROP TABLE IF EXISTS product_images;
 DROP TABLE IF EXISTS product_variants;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS categories;
-DROP TABLE IF EXISTS suppliers;
 DROP TABLE IF EXISTS customer_addresses;
 DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS user_roles;
@@ -111,18 +110,6 @@ CREATE TABLE categories (
   updated_at TIMESTAMP NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE suppliers (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(150) NOT NULL,
-  contact_person VARCHAR(150) NULL,
-  phone VARCHAR(30) NULL,
-  email VARCHAR(150) NULL,
-  address TEXT NULL,
-  status ENUM('active','inactive') NOT NULL DEFAULT 'active',
-  created_at TIMESTAMP NULL DEFAULT NULL,
-  updated_at TIMESTAMP NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE products (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   category_id BIGINT UNSIGNED NULL,
@@ -140,7 +127,6 @@ CREATE TABLE products (
 CREATE TABLE product_variants (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   product_id BIGINT UNSIGNED NOT NULL,
-  supplier_id BIGINT UNSIGNED NULL,
   variant_name VARCHAR(150) NOT NULL,
   sku VARCHAR(100) NOT NULL UNIQUE,
   barcode VARCHAR(120) NULL UNIQUE,
@@ -153,8 +139,10 @@ CREATE TABLE product_variants (
   status ENUM('active','inactive') NOT NULL DEFAULT 'active',
   created_at TIMESTAMP NULL DEFAULT NULL,
   updated_at TIMESTAMP NULL DEFAULT NULL,
-  CONSTRAINT fk_variants_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_variants_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+  CONSTRAINT fk_variants_product
+    FOREIGN KEY (product_id)
+    REFERENCES products(id)
+    ON DELETE CASCADE,
   INDEX idx_variants_product (product_id),
   INDEX idx_variants_sku (sku)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -180,7 +168,7 @@ CREATE TABLE customers (
   email VARCHAR(150) NULL,
   phone VARCHAR(30) NULL,
   customer_type ENUM('regular','reseller','vip') NOT NULL DEFAULT 'regular',
-  reseller_level ENUM('bronze','silver','gold','platinum') NULL,
+  reseller_level ENUM('silver','gold','platinum') NULL,
   status ENUM('active','inactive','blocked') NOT NULL DEFAULT 'active',
   total_purchase DECIMAL(15,2) NOT NULL DEFAULT 0,
   total_transaction INT UNSIGNED NOT NULL DEFAULT 0,
@@ -484,16 +472,13 @@ CREATE TABLE activity_logs (
 
 INSERT INTO branches (id, name, code, phone, email, address, city, province, is_main_branch, status, created_at, updated_at)
 VALUES
-(1, 'Tifanny Pusat', 'PUSAT', '081234567890', 'admin@tifanny.test', 'Kalimantan', 'Bontang', 'Kalimantan Timur', TRUE, 'active', NOW(), NOW());
+(1, 'Tifanny Pusat', 'PUSAT', '081345126239', 'admin@tifanny.test', 'Kalimantan', 'Pontianak', 'Kalimantan Barat', TRUE, 'active', NOW(), NOW());
 
 INSERT INTO roles (id, name, display_name, description, created_at, updated_at)
 VALUES
 (1, 'owner', 'Owner', 'Pemilik bisnis dengan semua akses.', NOW(), NOW()),
 (2, 'admin', 'Admin', 'Mengelola produk, stok, pelanggan, invoice, dan laporan.', NOW(), NOW()),
-(3, 'cashier', 'Kasir', 'Mengelola transaksi POS.', NOW(), NOW()),
-(4, 'warehouse', 'Gudang', 'Mengelola stok dan inventaris.', NOW(), NOW()),
-(5, 'customer', 'Customer', 'Pelanggan website publik.', NOW(), NOW()),
-(6, 'reseller', 'Reseller', 'Mitra reseller dengan harga khusus.', NOW(), NOW());
+(3, 'cashier', 'Kasir', 'Mengelola transaksi POS.', NOW(), NOW());
 
 -- Password default: password
 -- Hash menggunakan bcrypt Laravel untuk kata: password
@@ -508,20 +493,17 @@ INSERT INTO categories (id, name, slug, description, status, created_at, updated
 VALUES
 (1, 'Amplang', 'amplang', 'Produk amplang seafood premium.', 'active', NOW(), NOW());
 
-INSERT INTO suppliers (id, name, contact_person, phone, email, address, status, created_at, updated_at)
-VALUES
-(1, 'Supplier Seafood Kalimantan', 'Admin Supplier', '081111111111', 'supplier@tifanny.test', 'Kalimantan Timur', 'active', NOW(), NOW());
 
 INSERT INTO products (id, category_id, name, slug, description, short_description, status, is_featured, created_at, updated_at)
 VALUES
 (1, 1, 'Amplang Original', 'amplang-original', 'Amplang seafood premium buatan tangan dengan bahan pilihan.', 'Amplang original renyah dan gurih.', 'active', TRUE, NOW(), NOW());
 
 INSERT INTO product_variants
-(id, product_id, supplier_id, variant_name, sku, barcode, weight_gram, purchase_price, selling_price, reseller_price, minimum_stock, expired_at, status, created_at, updated_at)
+(id, product_id, variant_name, sku, barcode, weight_gram, purchase_price, selling_price, reseller_price, minimum_stock, expired_at, status, created_at, updated_at)
 VALUES
-(1, 1, 1, '100 gram', 'AMP-ORI-100', '899100000001', 100, 15000, 25000, 20000, 20, NULL, 'active', NOW(), NOW()),
-(2, 1, 1, '250 gram', 'AMP-ORI-250', '899100000002', 250, 35000, 55000, 45000, 20, NULL, 'active', NOW(), NOW()),
-(3, 1, 1, '500 gram', 'AMP-ORI-500', '899100000003', 500, 65000, 95000, 80000, 20, NULL, 'active', NOW(), NOW());
+(1, 1, '85 gram', 'AMP-ORI-100', '899100000001', 85, 15000, 25000, 20000, 20, NULL, 'active', NOW(), NOW()),
+(2, 1, '130 gram', 'AMP-ORI-250', '899100000002', 130, 37000, 57000, 47000, 20, NULL, 'active', NOW(), NOW()),
+(3, 1, '200 gram', 'AMP-ORI-500', '899100000003', 200, 40000, 70000, 55000, 20, NULL, 'active', NOW(), NOW());
 
 INSERT INTO branch_stocks (branch_id, product_variant_id, stock, reserved_stock, created_at, updated_at)
 VALUES
