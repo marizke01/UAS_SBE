@@ -17,6 +17,8 @@ Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admi
 
 Route::prefix('admin')->name('admin.')->middleware('admin.auth')->group(function () {
     Route::get('/', [DemoController::class, 'dashboard'])->name('dashboard');
+    Route::get('/stocks/modal-data', [DemoController::class, 'stockModalData'])->name('stocks.modal-data');
+    Route::post('/stocks/update', [DemoController::class, 'updateStock'])->name('stocks.update');
     Route::get('/pos', [PosController::class, 'index'])->name('pos');
     Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
     Route::get('/inventory', [DemoController::class, 'inventory'])->name('inventory');

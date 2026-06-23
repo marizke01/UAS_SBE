@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Presentation;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -44,6 +45,17 @@ class DemoController extends Controller
             ->where('sale_status', 'completed')
             ->whereDate('created_at', $today)
             ->count();
+        $todayWebsiteTransactions = DB::table('sales')
+            ->where('sale_status', 'completed')
+            ->whereDate('created_at', $today)
+            ->where('note', 'like', '%Website publik%')
+            ->count();
+        $todayPosTransactions = max(0, $todayTransactions - $todayWebsiteTransactions);
+        $websiteTransactions = DB::table('sales')
+            ->where('sale_status', 'completed')
+            ->where('note', 'like', '%Website publik%')
+            ->count();
+        $posTransactions = max(0, $totalTransactions - $websiteTransactions);
         $avgOrderValue = $totalTransactions > 0
             ? (float) DB::table('sales')->where('sale_status', 'completed')->avg('grand_total')
             : 0;
@@ -95,6 +107,7 @@ class DemoController extends Controller
         return view('admin.dashboard', compact(
             'todaySales', 'monthRevenue', 'totalTransactions', 'totalStock',
             'todayTransactions', 'avgOrderValue', 'monthProfit', 'invoiceCount',
+            'todayWebsiteTransactions', 'todayPosTransactions', 'websiteTransactions', 'posTransactions',
             'lowStock', 'latestSales', 'chartLabels', 'chartSales', 'chartTransactions',
             'bestProducts', 'pageTitle'
         ));
@@ -113,6 +126,101 @@ class DemoController extends Controller
             ->get();
 
         return view('admin.inventory', compact('stocks'));
+    }
+
+    public function stockModalData()
+    {
+        return response()->json([
+            'products' => $this->stockRows()->map(fn ($row) => [
+                'product_id' => (int) $row->product_variant_id,
+                'name' => $row->product_name . ' ' . $row->variant_name,
+                'sku' => $row->sku,
+                'stock' => (int) $row->stock,
+                'minimum_stock' => (int) $row->minimum_stock,
+            ]),
+            'summary' => $this->stockDashboardSummary(),
+        ]);
+    }
+
+    public function updateStock(Request $request)
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer'],
+            'new_stock' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $branchId = 1;
+        $variantId = (int) $data['product_id'];
+        $newStock = (int) $data['new_stock'];
+
+        $stock = DB::table('branch_stocks')
+            ->where('branch_id', $branchId)
+            ->where('product_variant_id', $variantId)
+            ->first();
+
+        if ($stock) {
+            DB::table('branch_stocks')
+                ->where('id', $stock->id)
+                ->update([
+                    'stock' => $newStock,
+                    'updated_at' => now(),
+                ]);
+        } else {
+            DB::table('branch_stocks')->insert([
+                'branch_id' => $branchId,
+                'product_variant_id' => $variantId,
+                'stock' => $newStock,
+                'reserved_stock' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Stok berhasil diperbarui.',
+            'product_id' => $variantId,
+            'new_stock' => $newStock,
+            'summary' => $this->stockDashboardSummary(),
+        ]);
+    }
+
+    private function stockRows()
+    {
+        return DB::table('product_variants as pv')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->leftJoin('branch_stocks as bs', function ($join) {
+                $join->on('bs.product_variant_id', '=', 'pv.id')->where('bs.branch_id', '=', 1);
+            })
+            ->select(
+                'pv.id as product_variant_id',
+                'p.name as product_name',
+                'pv.variant_name',
+                'pv.sku',
+                'pv.minimum_stock',
+                DB::raw('COALESCE(bs.stock, 0) as stock')
+            )
+            ->where('p.status', 'active')
+            ->where('pv.status', 'active')
+            ->orderBy('p.name')
+            ->orderBy('pv.weight_gram')
+            ->get();
+    }
+
+    private function stockDashboardSummary(): array
+    {
+        $lowStock = DB::table('branch_stocks as bs')
+            ->join('product_variants as pv', 'pv.id', '=', 'bs.product_variant_id')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->select('p.name', 'pv.variant_name', 'pv.sku', 'bs.stock', 'pv.minimum_stock')
+            ->whereColumn('bs.stock', '<=', 'pv.minimum_stock')
+            ->orderBy('bs.stock')
+            ->get();
+
+        return [
+            'total_stock' => (int) DB::table('branch_stocks')->sum(DB::raw('stock - reserved_stock')),
+            'low_stock_count' => $lowStock->count(),
+            'low_stock_text' => $lowStock->take(4)->map(fn ($x) => $x->name . ' ' . $x->variant_name . ' tinggal ' . $x->stock . ' pack')->join(', ') . ($lowStock->count() > 4 ? ', dan lainnya' : ''),
+        ];
     }
 
     public function invoices()
