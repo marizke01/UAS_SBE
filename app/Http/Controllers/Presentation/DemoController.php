@@ -16,6 +16,13 @@ class DemoController extends Controller
         return view('public.home', compact('products', 'settings'));
     }
 
+    public function checkout()
+    {
+        $settings = DB::table('settings')->pluck('setting_value', 'setting_key');
+
+        return view('public.checkout', compact('settings'));
+    }
+
     public function dashboard()
     {
         $today = Carbon::today();

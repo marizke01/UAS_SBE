@@ -7,6 +7,9 @@ use App\Http\Controllers\Presentation\PosController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DemoController::class, 'home'])->name('home');
+Route::get('/checkout', [DemoController::class, 'checkout'])->name('public.checkout.page');
+Route::post('/checkout', [PosController::class, 'publicCheckout'])->name('public.checkout');
+Route::get('/invoice/{invoice}/download', [InvoiceController::class, 'buyer'])->name('public.invoice.download');
 
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
