@@ -13,18 +13,30 @@ class PosController extends Controller
 {
     public function index()
     {
+        return $this->showPos('admin.pos');
+    }
+
+    public function publicCheckout(Request $request)
+    {
+        $request->merge(['checkout_context' => 'public']);
+
+        return $this->checkout($request);
+    }
+
+    private function showPos(string $view)
+    {
         $products = DB::table('product_variants as pv')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
             ->leftJoin('branch_stocks as bs', function ($join) {
                 $join->on('bs.product_variant_id', '=', 'pv.id')->where('bs.branch_id', '=', 1);
             })
-            ->select('pv.id', 'p.name', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.selling_price', 'pv.minimum_stock', DB::raw('COALESCE(bs.stock - bs.reserved_stock, 0) as stock'))
+            ->select('pv.id', 'p.name', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram', 'pv.selling_price', 'pv.minimum_stock', DB::raw('COALESCE(bs.stock - bs.reserved_stock, 0) as stock'))
             ->where('p.status', 'active')
             ->where('pv.status', 'active')
             ->orderBy('pv.weight_gram')
             ->get();
 
-        return view('admin.pos', compact('products'));
+        return view($view, compact('products'));
     }
 
     public function checkout(Request $request)
@@ -35,6 +47,9 @@ class PosController extends Controller
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'tax' => ['nullable', 'numeric', 'min:0'],
+            'checkout_context' => ['nullable', 'in:admin,public'],
+            'customer_name' => ['nullable', 'string', 'max:120'],
+            'customer_phone' => ['nullable', 'string', 'max:40'],
         ]);
 
         $items = json_decode($data['cart_payload'], true);
@@ -84,6 +99,16 @@ class PosController extends Controller
                     $paidAmount = $grandTotal;
                 }
 
+                $context = $data['checkout_context'] ?? 'admin';
+                $customerName = trim((string) ($data['customer_name'] ?? ''));
+                $customerPhone = trim((string) ($data['customer_phone'] ?? ''));
+                $orderSource = $context === 'public' ? 'Website publik' : 'POS admin';
+                $note = $orderSource;
+                if ($customerName !== '' || $customerPhone !== '') {
+                    $note .= ' | Pembeli: ' . ($customerName !== '' ? $customerName : '-');
+                    $note .= ' | WA: ' . ($customerPhone !== '' ? $customerPhone : '-');
+                }
+
                 $transactionNumber = 'TRX-' . now()->format('Ymd-His') . '-' . Str::upper(Str::random(4));
 
                 $saleId = DB::table('sales')->insertGetId([
@@ -100,7 +125,7 @@ class PosController extends Controller
                     'sale_status' => 'completed',
                     'paid_amount' => $paidAmount,
                     'change_amount' => max(0, $paidAmount - $grandTotal),
-                    'note' => 'Transaksi POS demo presentasi',
+                    'note' => $note,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -139,7 +164,7 @@ class PosController extends Controller
                         'stock_after' => $stockAfter,
                         'reference_type' => 'sale',
                         'reference_id' => $saleId,
-                        'note' => 'Pengurangan stok otomatis dari POS',
+                        'note' => 'Pengurangan stok otomatis dari ' . $orderSource,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
@@ -155,7 +180,7 @@ class PosController extends Controller
                     'payment_method' => $data['payment_method'],
                     'payment_status' => 'verified',
                     'payment_date' => now(),
-                    'note' => 'Pembayaran POS demo',
+                    'note' => 'Pembayaran ' . $orderSource,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -174,7 +199,7 @@ class PosController extends Controller
                     'grand_total' => $grandTotal,
                     'paid_amount' => $grandTotal,
                     'status' => 'paid',
-                    'note' => 'Invoice otomatis dari POS',
+                    'note' => 'Invoice otomatis dari ' . $orderSource,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -199,7 +224,7 @@ class PosController extends Controller
                     'user_id' => $userId,
                     'action' => 'checkout',
                     'module' => 'pos',
-                    'description' => 'Transaksi POS dibuat: ' . $transactionNumber,
+                    'description' => 'Transaksi dibuat: ' . $transactionNumber . ' via ' . $orderSource,
                     'subject_type' => 'sale',
                     'subject_id' => $saleId,
                     'new_values' => json_encode(['grand_total' => $grandTotal]),
@@ -211,6 +236,13 @@ class PosController extends Controller
 
                 return compact('transactionNumber', 'grandTotal', 'saleId', 'invoiceId');
             });
+
+            if (($data['checkout_context'] ?? 'admin') === 'public') {
+                return redirect()
+                    ->route('public.checkout.page', ['checkout' => 'success'])
+                    ->with('success', 'Checkout berhasil: ' . $result['transactionNumber'] . ' | Total Rp ' . number_format($result['grandTotal'], 0, ',', '.'))
+                    ->with('invoice_url', route('public.invoice.download', $result['invoiceId']));
+            }
 
             return redirect()->route('admin.pos')->with('success', 'Transaksi berhasil: ' . $result['transactionNumber'] . ' | Total Rp ' . number_format($result['grandTotal'], 0, ',', '.'));
         } catch (Throwable $e) {
