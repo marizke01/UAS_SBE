@@ -108,6 +108,9 @@ class PosController extends Controller
                     $note .= ' | Pembeli: ' . ($customerName !== '' ? $customerName : '-');
                     $note .= ' | WA: ' . ($customerPhone !== '' ? $customerPhone : '-');
                 }
+                if ($context === 'public') {
+                    $note .= ' | Status Pesanan: Menunggu Konfirmasi';
+                }
 
                 $transactionNumber = 'TRX-' . now()->format('Ymd-His') . '-' . Str::upper(Str::random(4));
 

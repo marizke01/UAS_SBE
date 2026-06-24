@@ -26,6 +26,7 @@
             <a href="/admin/pos" class="{{ request()->is('admin/pos') ? 'active' : '' }}">POS Kasir</a>
             <div class="menu-label">Operasional</div>
             <a href="/admin/inventory" class="{{ request()->is('admin/inventory') ? 'active' : '' }}">Inventaris</a>
+            <a href="/admin/website-orders" class="{{ request()->is('admin/website-orders') ? 'active' : '' }}">Pesanan Website</a>
             <a href="/admin/invoices" class="{{ request()->is('admin/invoices') ? 'active' : '' }}">Invoice</a>
             <div class="menu-label">Analitik</div>
             <a href="/admin/reports" class="{{ request()->is('admin/reports') ? 'active' : '' }}">Laporan</a>
@@ -93,6 +94,48 @@
                                     <td><button type="button" class="btn btn-primary save-stock-btn" onclick="saveInventoryStock({{ $s->product_variant_id }})">Simpan</button></td>
                                 </tr>
                             @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px">
+                <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+                    <div>
+                        <h3 class="font-poppins" style="margin:0;color:var(--dark)">Riwayat Perubahan Stok</h3>
+                        <p style="margin:6px 0 0;color:var(--gray-600);font-size:13px">Mencatat stok lama, stok baru, tipe pergerakan, dan catatan perubahan.</p>
+                    </div>
+                    <a class="btn btn-outline" href="{{ route('admin.exports.stock') }}">Export Stok CSV</a>
+                </div>
+                <div style="overflow:auto">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Produk</th>
+                                <th>SKU</th>
+                                <th>Tipe</th>
+                                <th>Qty</th>
+                                <th>Stok Lama</th>
+                                <th>Stok Baru</th>
+                                <th>Catatan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($stockMovements as $movement)
+                                <tr>
+                                    <td>{{ \Illuminate\Support\Carbon::parse($movement->created_at)->format('d/m/Y H:i') }}</td>
+                                    <td><strong>{{ $movement->product_name }} {{ $movement->variant_name }}</strong></td>
+                                    <td>{{ $movement->sku }}</td>
+                                    <td><span class="badge {{ $movement->movement_type === 'out' ? 'badge-danger' : ($movement->movement_type === 'adjustment' ? 'badge-warning' : 'badge-success') }}">{{ $movement->movement_type }}</span></td>
+                                    <td>{{ number_format($movement->qty,0,',','.') }}</td>
+                                    <td>{{ number_format($movement->stock_before,0,',','.') }}</td>
+                                    <td>{{ number_format($movement->stock_after,0,',','.') }}</td>
+                                    <td>{{ $movement->note ?? '-' }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="8">Belum ada riwayat perubahan stok.</td></tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>

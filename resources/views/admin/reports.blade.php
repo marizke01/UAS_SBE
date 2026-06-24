@@ -10,6 +10,7 @@
             <a href="/admin/pos" class="{{ request()->is('admin/pos') ? 'active' : '' }}">POS Kasir</a>
             <div class="menu-label">Operasional</div>
             <a href="/admin/inventory" class="{{ request()->is('admin/inventory') ? 'active' : '' }}">Inventaris</a>
+            <a href="/admin/website-orders" class="{{ request()->is('admin/website-orders') ? 'active' : '' }}">Pesanan Website</a>
             <a href="/admin/invoices" class="{{ request()->is('admin/invoices') ? 'active' : '' }}">Invoice</a>
             <div class="menu-label">Analitik</div>
             <a href="/admin/reports" class="{{ request()->is('admin/reports') ? 'active' : '' }}">Laporan</a>
@@ -27,6 +28,16 @@
                     <a class="btn btn-primary" href="{{ route('admin.seller-invoices.daily', ['date' => now()->toDateString()]) }}">Download Harian Hari Ini</a>
                     <a class="btn btn-dark" href="{{ route('admin.seller-invoices.full', ['month' => now()->format('Y-m')]) }}">Download Bulan Ini</a>
                     <a class="btn btn-outline" href="{{ route('admin.seller-invoices.full', ['year' => now()->format('Y')]) }}">Download Tahun Ini</a>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:20px">
+                <h3 class="font-poppins" style="margin-top:0">Export Excel / CSV</h3>
+                <p style="margin:0 0 14px;color:var(--gray-600);font-size:13px">File CSV bisa langsung dibuka di Microsoft Excel untuk kebutuhan laporan owner.</p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <a class="btn btn-primary" href="{{ route('admin.exports.sales') }}">Export Penjualan CSV</a>
+                    <a class="btn btn-outline" href="{{ route('admin.exports.stock') }}">Export Stok CSV</a>
+                    <a class="btn btn-dark" href="{{ route('admin.exports.best-products') }}">Export Produk Terlaris CSV</a>
                 </div>
             </div>
 

@@ -125,7 +125,15 @@ class DemoController extends Controller
             ->orderBy('pv.weight_gram')
             ->get();
 
-        return view('admin.inventory', compact('stocks'));
+        $stockMovements = DB::table('stock_movements as sm')
+            ->join('product_variants as pv', 'pv.id', '=', 'sm.product_variant_id')
+            ->join('products as p', 'p.id', '=', 'pv.product_id')
+            ->select('sm.*', 'p.name as product_name', 'pv.variant_name', 'pv.sku')
+            ->latest('sm.id')
+            ->limit(20)
+            ->get();
+
+        return view('admin.inventory', compact('stocks', 'stockMovements'));
     }
 
     public function stockModalData()
@@ -158,6 +166,8 @@ class DemoController extends Controller
             ->where('product_variant_id', $variantId)
             ->first();
 
+        $stockBefore = $stock ? (int) $stock->stock : 0;
+
         if ($stock) {
             DB::table('branch_stocks')
                 ->where('id', $stock->id)
@@ -176,12 +186,214 @@ class DemoController extends Controller
             ]);
         }
 
+        DB::table('stock_movements')->insert([
+            'branch_id' => $branchId,
+            'product_variant_id' => $variantId,
+            'user_id' => 1,
+            'movement_type' => 'adjustment',
+            'qty' => abs($newStock - $stockBefore),
+            'stock_before' => $stockBefore,
+            'stock_after' => $newStock,
+            'reference_type' => 'inventory_update',
+            'reference_id' => $variantId,
+            'note' => 'Update stok manual dari dashboard inventaris',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('activity_logs')->insert([
+            'user_id' => 1,
+            'action' => 'update_stock',
+            'module' => 'inventory',
+            'description' => 'Stok produk diperbarui dari ' . $stockBefore . ' menjadi ' . $newStock,
+            'subject_type' => 'product_variant',
+            'subject_id' => $variantId,
+            'old_values' => json_encode(['stock' => $stockBefore]),
+            'new_values' => json_encode(['stock' => $newStock]),
+            'ip_address' => request()->ip(),
+            'user_agent' => substr((string) request()->userAgent(), 0, 500),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         return response()->json([
             'message' => 'Stok berhasil diperbarui.',
             'product_id' => $variantId,
             'new_stock' => $newStock,
             'summary' => $this->stockDashboardSummary(),
         ]);
+    }
+
+    public function websiteOrders()
+    {
+        $orders = DB::table('sales as s')
+            ->leftJoin('sale_items as si', 'si.sale_id', '=', 's.id')
+            ->select(
+                's.*',
+                DB::raw('COUNT(si.id) as item_lines'),
+                DB::raw('COALESCE(SUM(si.qty), 0) as total_qty')
+            )
+            ->where('s.note', 'like', '%Website publik%')
+            ->groupBy('s.id', 's.transaction_number', 's.branch_id', 's.user_id', 's.customer_id', 's.subtotal', 's.discount', 's.tax', 's.grand_total', 's.payment_method', 's.payment_status', 's.sale_status', 's.paid_amount', 's.change_amount', 's.note', 's.created_at', 's.updated_at')
+            ->latest('s.id')
+            ->get()
+            ->map(function ($order) {
+                $order->order_status = $this->orderStatusFromNote($order->note);
+                $order->customer_name_text = $this->noteValue($order->note, 'Pembeli') ?: 'Walk-in Customer';
+                $order->customer_phone_text = $this->noteValue($order->note, 'WA') ?: '-';
+
+                return $order;
+            });
+
+        $statuses = $this->orderStatuses();
+        $summary = [
+            'total' => $orders->count(),
+            'pending' => $orders->where('order_status', 'Menunggu Konfirmasi')->count(),
+            'processing' => $orders->whereIn('order_status', ['Diproses', 'Dikirim'])->count(),
+            'done' => $orders->where('order_status', 'Selesai')->count(),
+        ];
+
+        return view('admin.website-orders', compact('orders', 'statuses', 'summary'));
+    }
+
+    public function updateWebsiteOrderStatus(Request $request, int $sale)
+    {
+        $data = $request->validate([
+            'status' => ['required', 'string', 'in:' . implode(',', $this->orderStatuses())],
+        ]);
+
+        $order = DB::table('sales')
+            ->where('id', $sale)
+            ->where('note', 'like', '%Website publik%')
+            ->first();
+
+        abort_if(!$order, 404);
+
+        $oldStatus = $this->orderStatusFromNote($order->note);
+        $newStatus = $data['status'];
+        $saleStatus = match ($newStatus) {
+            'Dibatalkan' => 'cancelled',
+            default => 'completed',
+        };
+        $paymentStatus = $newStatus === 'Dibatalkan' ? 'cancelled' : $order->payment_status;
+
+        DB::table('sales')->where('id', $sale)->update([
+            'note' => $this->replaceOrderStatusNote($order->note, $newStatus),
+            'sale_status' => $saleStatus,
+            'payment_status' => $paymentStatus,
+            'updated_at' => now(),
+        ]);
+
+        DB::table('activity_logs')->insert([
+            'user_id' => 1,
+            'action' => 'update_order_status',
+            'module' => 'website_orders',
+            'description' => 'Status pesanan website diubah dari ' . $oldStatus . ' menjadi ' . $newStatus,
+            'subject_type' => 'sale',
+            'subject_id' => $sale,
+            'old_values' => json_encode(['status' => $oldStatus]),
+            'new_values' => json_encode(['status' => $newStatus]),
+            'ip_address' => request()->ip(),
+            'user_agent' => substr((string) request()->userAgent(), 0, 500),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Status pesanan berhasil diperbarui.');
+    }
+
+    public function exportSalesCsv()
+    {
+        $rows = DB::table('sales')
+            ->select('transaction_number', 'created_at', 'grand_total', 'payment_method', 'payment_status', 'sale_status', 'note')
+            ->latest('id')
+            ->get();
+
+        return $this->csvDownload('laporan-penjualan.csv', ['No Transaksi', 'Tanggal', 'Total', 'Metode', 'Payment Status', 'Sale Status', 'Catatan'], $rows->map(fn ($row) => [
+            $row->transaction_number,
+            $row->created_at,
+            $row->grand_total,
+            $row->payment_method,
+            $row->payment_status,
+            $row->sale_status,
+            $row->note,
+        ]));
+    }
+
+    public function exportStockCsv()
+    {
+        $rows = $this->stockRows();
+
+        return $this->csvDownload('laporan-stok.csv', ['Produk', 'SKU', 'Stok', 'Minimum Stok', 'Status'], $rows->map(fn ($row) => [
+            $row->product_name . ' ' . $row->variant_name,
+            $row->sku,
+            $row->stock,
+            $row->minimum_stock,
+            (int) $row->stock <= (int) $row->minimum_stock ? 'Stok Rendah' : 'Aman',
+        ]));
+    }
+
+    public function exportBestProductsCsv()
+    {
+        $rows = DB::table('sale_items as si')
+            ->select('si.product_name', 'si.variant_name', DB::raw('SUM(si.qty) as total_qty'), DB::raw('SUM(si.subtotal) as total_sales'))
+            ->groupBy('si.product_name', 'si.variant_name')
+            ->orderByDesc('total_qty')
+            ->get();
+
+        return $this->csvDownload('produk-terlaris.csv', ['Produk', 'Varian', 'Qty Terjual', 'Revenue'], $rows->map(fn ($row) => [
+            $row->product_name,
+            $row->variant_name,
+            $row->total_qty,
+            $row->total_sales,
+        ]));
+    }
+
+    private function csvDownload(string $filename, array $headers, $rows)
+    {
+        return response()->streamDownload(function () use ($headers, $rows) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $headers);
+            foreach ($rows as $row) {
+                fputcsv($handle, $row);
+            }
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function orderStatuses(): array
+    {
+        return ['Menunggu Konfirmasi', 'Diproses', 'Dikirim', 'Selesai', 'Dibatalkan'];
+    }
+
+    private function orderStatusFromNote(?string $note): string
+    {
+        if ($note && preg_match('/Status Pesanan:\s*([^|]+)/', $note, $matches)) {
+            return trim($matches[1]);
+        }
+
+        return 'Menunggu Konfirmasi';
+    }
+
+    private function replaceOrderStatusNote(?string $note, string $status): string
+    {
+        $note = trim((string) $note);
+        if (preg_match('/Status Pesanan:\s*([^|]+)/', $note)) {
+            return trim(preg_replace('/Status Pesanan:\s*([^|]+)/', 'Status Pesanan: ' . $status, $note));
+        }
+
+        return trim($note . ' | Status Pesanan: ' . $status);
+    }
+
+    private function noteValue(?string $note, string $key): ?string
+    {
+        if (!$note || !preg_match('/' . preg_quote($key, '/') . ':\s*([^|]+)/', $note, $matches)) {
+            return null;
+        }
+
+        return trim($matches[1]);
     }
 
     private function stockRows()
