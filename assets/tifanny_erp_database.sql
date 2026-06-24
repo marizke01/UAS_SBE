@@ -110,6 +110,18 @@ CREATE TABLE categories (
   updated_at TIMESTAMP NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE suppliers (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  contact_person VARCHAR(150) NULL,
+  phone VARCHAR(30) NULL,
+  email VARCHAR(150) NULL,
+  address TEXT NULL,
+  status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NULL DEFAULT NULL,
+  updated_at TIMESTAMP NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE products (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   category_id BIGINT UNSIGNED NULL,
@@ -127,11 +139,12 @@ CREATE TABLE products (
 CREATE TABLE product_variants (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   product_id BIGINT UNSIGNED NOT NULL,
+  supplier_id BIGINT UNSIGNED NULL,
   variant_name VARCHAR(150) NOT NULL,
   sku VARCHAR(100) NOT NULL UNIQUE,
   barcode VARCHAR(120) NULL UNIQUE,
   weight_gram INT UNSIGNED NOT NULL DEFAULT 0,
-  purchase_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+  production_cost DECIMAL(15,2) NOT NULL DEFAULT 0,
   selling_price DECIMAL(15,2) NOT NULL DEFAULT 0,
   reseller_price DECIMAL(15,2) NULL,
   minimum_stock INT UNSIGNED NOT NULL DEFAULT 0,
@@ -139,13 +152,11 @@ CREATE TABLE product_variants (
   status ENUM('active','inactive') NOT NULL DEFAULT 'active',
   created_at TIMESTAMP NULL DEFAULT NULL,
   updated_at TIMESTAMP NULL DEFAULT NULL,
-  CONSTRAINT fk_variants_product
-    FOREIGN KEY (product_id)
-    REFERENCES products(id)
-    ON DELETE CASCADE,
+  CONSTRAINT fk_variants_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   INDEX idx_variants_product (product_id),
   INDEX idx_variants_sku (sku)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 CREATE TABLE product_images (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -167,8 +178,7 @@ CREATE TABLE customers (
   name VARCHAR(150) NOT NULL,
   email VARCHAR(150) NULL,
   phone VARCHAR(30) NULL,
-  customer_type ENUM('regular','reseller','vip') NOT NULL DEFAULT 'regular',
-  reseller_level ENUM('silver','gold','platinum') NULL,
+  customer_type ENUM('regular','reseller') NOT NULL DEFAULT 'regular',
   status ENUM('active','inactive','blocked') NOT NULL DEFAULT 'active',
   total_purchase DECIMAL(15,2) NOT NULL DEFAULT 0,
   total_transaction INT UNSIGNED NOT NULL DEFAULT 0,
@@ -217,7 +227,7 @@ CREATE TABLE stock_movements (
   branch_id BIGINT UNSIGNED NOT NULL,
   product_variant_id BIGINT UNSIGNED NOT NULL,
   user_id BIGINT UNSIGNED NULL,
-  movement_type ENUM('in','out','adjustment','return','damaged','transfer_in','transfer_out') NOT NULL,
+  movement_type ENUM('production','out','adjustment','return','damaged','transfer_in','transfer_out') NOT NULL,
   qty INT NOT NULL,
   stock_before INT NOT NULL DEFAULT 0,
   stock_after INT NOT NULL DEFAULT 0,
@@ -480,6 +490,7 @@ VALUES
 (2, 'admin', 'Admin', 'Mengelola produk, stok, pelanggan, invoice, dan laporan.', NOW(), NOW()),
 (3, 'cashier', 'Kasir', 'Mengelola transaksi POS.', NOW(), NOW());
 
+
 -- Password default: password
 -- Hash menggunakan bcrypt Laravel untuk kata: password
 INSERT INTO users (id, branch_id, name, email, phone, password, status, email_verified_at, created_at, updated_at)
@@ -499,11 +510,11 @@ VALUES
 (1, 1, 'Amplang Original', 'amplang-original', 'Amplang seafood premium buatan tangan dengan bahan pilihan.', 'Amplang original renyah dan gurih.', 'active', TRUE, NOW(), NOW());
 
 INSERT INTO product_variants
-(id, product_id, variant_name, sku, barcode, weight_gram, purchase_price, selling_price, reseller_price, minimum_stock, expired_at, status, created_at, updated_at)
+(id, product_id, variant_name, sku, barcode, weight_gram, production_cost, selling_price, reseller_price, minimum_stock, expired_at, status, created_at, updated_at)
 VALUES
-(1, 1, '85 gram', 'AMP-ORI-100', '899100000001', 85, 15000, 25000, 20000, 20, NULL, 'active', NOW(), NOW()),
-(2, 1, '130 gram', 'AMP-ORI-250', '899100000002', 130, 37000, 57000, 47000, 20, NULL, 'active', NOW(), NOW()),
-(3, 1, '200 gram', 'AMP-ORI-500', '899100000003', 200, 40000, 70000, 55000, 20, NULL, 'active', NOW(), NOW());
+(1, 1, '100 gram', 'AMP-ORI-100', '899100000001', 100, 15000, 25000, 20000, 20, NULL, 'active', NOW(), NOW()),
+(2, 1, '250 gram', 'AMP-ORI-250', '899100000002', 250, 35000, 55000, 45000, 20, NULL, 'active', NOW(), NOW()),
+(3, 1, '500 gram', 'AMP-ORI-500', '899100000003', 500, 65000, 95000, 80000, 20, NULL, 'active', NOW(), NOW());
 
 INSERT INTO branch_stocks (branch_id, product_variant_id, stock, reserved_stock, created_at, updated_at)
 VALUES

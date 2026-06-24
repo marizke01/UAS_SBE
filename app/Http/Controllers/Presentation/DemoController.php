@@ -86,17 +86,7 @@ class DemoController extends Controller
             ->join('branches as b', 'b.id', '=', 'bs.branch_id')
             ->join('product_variants as pv', 'pv.id', '=', 'bs.product_variant_id')
             ->join('products as p', 'p.id', '=', 'pv.product_id')
-            ->select(
-                'bs.*',
-                'b.name as branch_name',
-                'p.name as product_name',
-                'pv.variant_name',
-                'pv.sku',
-                'pv.barcode',
-                'pv.minimum_stock',
-                'pv.selling_price',
-                'pv.reseller_price'
-            )
+            ->select('bs.*', 'b.name as branch_name', 'p.name as product_name', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.minimum_stock', 'pv.selling_price', 'pv.reseller_price')
             ->orderBy('p.name')
             ->orderBy('pv.weight_gram')
             ->get();
