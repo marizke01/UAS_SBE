@@ -51,6 +51,7 @@
             <a href="{{ route('admin.pos') }}">POS Kasir</a>
             <div class="menu-label">Operasional</div>
             <a href="{{ route('admin.inventory') }}">Inventaris</a>
+            <a href="{{ route('admin.cashiers') }}">Manajemen Kasir</a>
             <a href="{{ route('admin.website-orders') }}">Pesanan Website</a>
             <a href="{{ route('admin.invoices') }}">Invoice</a>
             <div class="menu-label">Analitik</div>
