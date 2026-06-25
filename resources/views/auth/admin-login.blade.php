@@ -23,6 +23,7 @@
         @endif
 
         <button class="btn btn-dark" style="width:100%;height:56px;font-size:16px">Login</button>
+        <a href="{{ route('cashier.login') }}" style="display:block;text-align:center;margin-top:16px;color:var(--dark);font-weight:800">Masuk Dashboard Kasir</a>
     </form>
 </section>
 @endsection
