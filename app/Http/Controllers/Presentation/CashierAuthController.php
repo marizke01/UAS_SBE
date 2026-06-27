@@ -37,11 +37,11 @@ class CashierAuthController extends Controller
                 ->where('u.status', 'active')
                 ->whereIn('r.name', ['cashier', 'kasir'])
                 ->first();
-        } catch (Throwable) {
-            $user = null;
+        } catch (Throwable $e) {
+            dd($e->getMessage());
         }
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return back()->withErrors(['email' => 'Email atau password kasir tidak sesuai.'])->withInput();
         }
 

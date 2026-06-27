@@ -62,7 +62,7 @@ class DemoController extends Controller
         $monthProfit = (float) DB::table('sale_items as si')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'si.product_variant_id')
             ->where('si.created_at', '>=', $monthStart)
-            ->sum(DB::raw('(si.price - COALESCE(pv.purchase_price, si.price * 0.6)) * si.qty'));
+            ->sum(DB::raw('(si.price - COALESCE(pv.production_cost, si.price * 0.6)) * si.qty'));
         $invoiceCount = DB::table('invoices')->count();
 
         $lowStock = DB::table('branch_stocks as bs')
@@ -495,7 +495,7 @@ class DemoController extends Controller
                 'si.variant_name',
                 DB::raw('SUM(si.qty) as total_qty'),
                 DB::raw('SUM(si.subtotal) as revenue'),
-                DB::raw('SUM((si.price - COALESCE(pv.purchase_price, si.price * 0.6)) * si.qty) as profit')
+                DB::raw('SUM((si.price - COALESCE(pv.production_cost, si.price * 0.6)) * si.qty) as profit')
             )
             ->where('si.created_at', '>=', Carbon::today()->subDays(30))
             ->groupBy('si.product_name', 'si.variant_name')
@@ -535,7 +535,7 @@ class DemoController extends Controller
         $totalTransactions = DB::table('sales')->where('sale_status', 'completed')->count();
         $estimatedProfit = (float) DB::table('sale_items as si')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'si.product_variant_id')
-            ->sum(DB::raw('(si.price - COALESCE(pv.purchase_price, si.price * 0.6)) * si.qty'));
+            ->sum(DB::raw('(si.price - COALESCE(pv.production_cost, si.price * 0.6)) * si.qty'));
 
         $avgDailyRevenue = (float) DB::table('sales')
             ->where('created_at', '>=', Carbon::today()->subDays(7))
@@ -606,13 +606,13 @@ class DemoController extends Controller
             ->leftJoin('branch_stocks as bs', 'bs.product_variant_id', '=', 'pv.id')
             ->select(
                 'pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram',
-                'pv.selling_price', 'pv.reseller_price', 'pv.purchase_price', 'pv.minimum_stock',
+                'pv.selling_price', 'pv.reseller_price', 'pv.production_cost', 'pv.minimum_stock',
                 DB::raw('COALESCE(SUM(bs.stock - bs.reserved_stock), 0) as stock'),
                 DB::raw('COALESCE(c.name, "Produk") as category_name')
             )
             ->where('p.status', 'active')
             ->where('pv.status', 'active')
-            ->groupBy('pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram', 'pv.selling_price', 'pv.reseller_price', 'pv.purchase_price', 'pv.minimum_stock', 'c.name')
+            ->groupBy('pv.id', 'p.name', 'p.slug', 'p.short_description', 'pv.variant_name', 'pv.sku', 'pv.barcode', 'pv.weight_gram', 'pv.selling_price', 'pv.reseller_price', 'pv.production_cost', 'pv.minimum_stock', 'c.name')
             ->orderBy('pv.weight_gram')
             ->get();
     }

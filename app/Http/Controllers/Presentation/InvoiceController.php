@@ -91,7 +91,7 @@ class InvoiceController extends Controller
     {
         return DB::table('sale_items as si')
             ->leftJoin('product_variants as pv', 'pv.id', '=', 'si.product_variant_id')
-            ->select('si.*', DB::raw('COALESCE(pv.purchase_price, si.price * 0.6) as purchase_price'));
+            ->select('si.*', DB::raw('COALESCE(pv.production_cost, si.price * 0.6) as production_cost'));
     }
 
     private function saleItemsFor($saleIds)
@@ -106,7 +106,7 @@ class InvoiceController extends Controller
     private function summaryForSales($sales, $items): array
     {
         $revenue = (float) $sales->sum('grand_total');
-        $profit = (float) $items->sum(fn ($item) => ((float) $item->price - (float) $item->purchase_price) * (int) $item->qty);
+        $profit = (float) $items->sum(fn ($item) => ((float) $item->price - (float) $item->production_cost) * (int) $item->qty);
 
         return [
             'transactions' => $sales->count(),

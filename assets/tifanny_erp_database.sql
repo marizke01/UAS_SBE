@@ -110,18 +110,6 @@ CREATE TABLE categories (
   updated_at TIMESTAMP NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE suppliers (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(150) NOT NULL,
-  contact_person VARCHAR(150) NULL,
-  phone VARCHAR(30) NULL,
-  email VARCHAR(150) NULL,
-  address TEXT NULL,
-  status ENUM('active','inactive') NOT NULL DEFAULT 'active',
-  created_at TIMESTAMP NULL DEFAULT NULL,
-  updated_at TIMESTAMP NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE products (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   category_id BIGINT UNSIGNED NULL,
@@ -139,7 +127,6 @@ CREATE TABLE products (
 CREATE TABLE product_variants (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   product_id BIGINT UNSIGNED NOT NULL,
-  supplier_id BIGINT UNSIGNED NULL,
   variant_name VARCHAR(150) NOT NULL,
   sku VARCHAR(100) NOT NULL UNIQUE,
   barcode VARCHAR(120) NULL UNIQUE,
@@ -495,10 +482,15 @@ VALUES
 -- Hash menggunakan bcrypt Laravel untuk kata: password
 INSERT INTO users (id, branch_id, name, email, phone, password, status, email_verified_at, created_at, updated_at)
 VALUES
-(1, 1, 'Tifanny Admin', 'admin@tifanny.test', '081234567890', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'active', NOW(), NOW(), NOW());
+(1, 1, 'Tifanny Admin', 'admin@tifanny.test', '081234567890', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'active', NOW(), NOW(), NOW()),
+(2, 1, 'Tifanny Kasir', 'kasir@tifanny.test', '081111111111', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'active', NOW(), NOW(), NOW()),
+(3, 1, 'Tifanny Owner', 'owner@tifanny.test', '089999999999', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'active', NOW(), NOW(), NOW());
 
 INSERT INTO user_roles (user_id, role_id, created_at, updated_at)
-VALUES (1, 1, NOW(), NOW());
+VALUES 
+(1, 2, NOW(), NOW()),
+(2, 3, NOW(), NOW()),
+(3, 1, NOW(), NOW());
 
 INSERT INTO categories (id, name, slug, description, status, created_at, updated_at)
 VALUES
