@@ -23,6 +23,13 @@ class PosController extends Controller
         return $this->checkout($request);
     }
 
+    public function cashierCheckout(Request $request)
+    {
+        $request->merge(['checkout_context' => 'cashier']);
+
+        return $this->checkout($request);
+    }
+
     private function showPos(string $view)
     {
         $products = DB::table('product_variants as pv')
@@ -47,7 +54,7 @@ class PosController extends Controller
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'tax' => ['nullable', 'numeric', 'min:0'],
-            'checkout_context' => ['nullable', 'in:admin,public'],
+            'checkout_context' => ['nullable', 'in:admin,public,cashier'],
             'customer_name' => ['nullable', 'string', 'max:120'],
             'customer_phone' => ['nullable', 'string', 'max:40'],
         ]);
@@ -60,7 +67,12 @@ class PosController extends Controller
         try {
             $result = DB::transaction(function () use ($items, $data) {
                 $branchId = 1;
-                $userId = 1;
+                $context = $data['checkout_context'] ?? 'admin';
+                $userId = match ($context) {
+                    'cashier' => (int) session('cashier_user.id', 1),
+                    'admin' => (int) session('admin_user.id', 1),
+                    default => 1,
+                };
                 $subtotal = 0;
                 $resolvedItems = [];
 
@@ -99,14 +111,20 @@ class PosController extends Controller
                     $paidAmount = $grandTotal;
                 }
 
-                $context = $data['checkout_context'] ?? 'admin';
                 $customerName = trim((string) ($data['customer_name'] ?? ''));
                 $customerPhone = trim((string) ($data['customer_phone'] ?? ''));
-                $orderSource = $context === 'public' ? 'Website publik' : 'POS admin';
+                $orderSource = match ($context) {
+                    'public' => 'Website publik',
+                    'cashier' => 'POS kasir',
+                    default => 'POS admin',
+                };
                 $note = $orderSource;
                 if ($customerName !== '' || $customerPhone !== '') {
                     $note .= ' | Pembeli: ' . ($customerName !== '' ? $customerName : '-');
                     $note .= ' | WA: ' . ($customerPhone !== '' ? $customerPhone : '-');
+                }
+                if ($context === 'public') {
+                    $note .= ' | Status Pesanan: Menunggu Konfirmasi';
                 }
 
                 $transactionNumber = 'TRX-' . now()->format('Ymd-His') . '-' . Str::upper(Str::random(4));
@@ -242,6 +260,10 @@ class PosController extends Controller
                     ->route('public.checkout.page', ['checkout' => 'success'])
                     ->with('success', 'Checkout berhasil: ' . $result['transactionNumber'] . ' | Total Rp ' . number_format($result['grandTotal'], 0, ',', '.'))
                     ->with('invoice_url', route('public.invoice.download', $result['invoiceId']));
+            }
+
+            if (($data['checkout_context'] ?? 'admin') === 'cashier') {
+                return redirect()->route('cashier.pos')->with('success', 'Transaksi berhasil: ' . $result['transactionNumber'] . ' | Total Rp ' . number_format($result['grandTotal'], 0, ',', '.'));
             }
 
             return redirect()->route('admin.pos')->with('success', 'Transaksi berhasil: ' . $result['transactionNumber'] . ' | Total Rp ' . number_format($result['grandTotal'], 0, ',', '.'));
