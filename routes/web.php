@@ -7,7 +7,10 @@ use App\Http\Controllers\Presentation\CashierController;
 use App\Http\Controllers\Presentation\DemoController;
 use App\Http\Controllers\Presentation\InvoiceController;
 use App\Http\Controllers\Presentation\PosController;
+use App\Http\Controllers\Presentation\AdminAccountController;
+use App\Http\Controllers\Presentation\CashierAccountController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PurchaseOrderController;
 
 Route::get('/', [DemoController::class, 'home'])->name('home');
 Route::get('/checkout', [DemoController::class, 'checkout'])->name('public.checkout.page');
@@ -30,6 +33,9 @@ Route::prefix('cashier')->name('cashier.')->middleware('cashier.auth')->group(fu
     Route::post('/pos/checkout', [PosController::class, 'cashierCheckout'])->name('pos.checkout');
     Route::get('/history', [CashierController::class, 'history'])->name('history');
     Route::get('/stock', [CashierController::class, 'stock'])->name('stock');
+    Route::get('/account', [CashierAccountController::class, 'show'])->name('account');
+    Route::post('/account', [CashierAccountController::class, 'update'])->name('account.update');
+    Route::post('/account/password', [CashierAccountController::class, 'updatePassword'])->name('account.password');
 });
 
 Route::prefix('admin')->name('admin.')->middleware('admin.auth')->group(function () {
@@ -55,4 +61,17 @@ Route::prefix('admin')->name('admin.')->middleware('admin.auth')->group(function
     Route::get('/exports/stock', [DemoController::class, 'exportStockCsv'])->name('exports.stock');
     Route::get('/exports/best-products', [DemoController::class, 'exportBestProductsCsv'])->name('exports.best-products');
     Route::get('/ai-analytics', [DemoController::class, 'ai'])->name('ai');
+    Route::get('/account', [AdminAccountController::class, 'show'])->name('account');
+    Route::post('/account', [AdminAccountController::class, 'update'])->name('account.update');
+    Route::post('/account/password', [AdminAccountController::class, 'updatePassword'])->name('account.password');
+});
+
+Route::prefix('admin/purchase-order')->name('admin.purchase-order.')->group(function () {
+    Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
+    Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
+    Route::post('/store', [PurchaseOrderController::class, 'store'])->name('store');
+    Route::post('/generate', [PurchaseOrderController::class, 'generate'])->name('generate');
+    Route::get('/{id}', [PurchaseOrderController::class, 'show'])->name('show');
+    Route::get('/{id}/pdf', [PurchaseOrderController::class, 'pdf'])->name('pdf');
+    Route::post('/{id}/send', [PurchaseOrderController::class, 'sendEmail'])->name('send');
 });

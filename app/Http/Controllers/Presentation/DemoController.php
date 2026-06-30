@@ -104,12 +104,24 @@ class DemoController extends Controller
             ->get();
         $pageTitle = 'Dashboard ERP';
 
+       $lowStockProducts = DB::table('branch_stocks')
+        ->join('product_variants', 'product_variants.id', '=', 'branch_stocks.product_variant_id')
+        ->join('products', 'products.id', '=', 'product_variants.product_id')
+        ->select(
+            'products.id',
+            'products.name',
+            'branch_stocks.stock',
+            'product_variants.minimum_stock'
+        )
+        ->whereColumn('branch_stocks.stock', '<=', 'product_variants.minimum_stock')
+        ->get();
+
         return view('admin.dashboard', compact(
             'todaySales', 'monthRevenue', 'totalTransactions', 'totalStock',
             'todayTransactions', 'avgOrderValue', 'monthProfit', 'invoiceCount',
             'todayWebsiteTransactions', 'todayPosTransactions', 'websiteTransactions', 'posTransactions',
             'lowStock', 'latestSales', 'chartLabels', 'chartSales', 'chartTransactions',
-            'bestProducts', 'pageTitle'
+            'bestProducts', 'pageTitle', 'lowStockProducts'
         ));
     }
 

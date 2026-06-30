@@ -24,9 +24,12 @@
             <a href="/admin/cashiers" class="{{ request()->is('admin/cashiers') ? 'active' : '' }}">Manajemen Kasir</a>
             <a href="/admin/website-orders" class="{{ request()->is('admin/website-orders') ? 'active' : '' }}">Pesanan Website</a>
             <a href="/admin/invoices" class="{{ request()->is('admin/invoices') ? 'active' : '' }}">Invoice</a>
+            <a href="/admin/purchase-order" class="{{ request()->is('admin/purchase-order*') ? 'active' : '' }}">Purchase Order</a>
             <div class="menu-label">Analitik</div>
             <a href="/admin/reports" class="{{ request()->is('admin/reports') ? 'active' : '' }}">Laporan</a>
             <a href="/admin/ai-analytics" class="{{ request()->is('admin/ai-analytics') ? 'active' : '' }}">AI Analytics</a>
+            <div class="menu-label">Pengaturan</div>
+            <a href="/admin/account" class="{{ request()->is('admin/account') ? 'active' : '' }}">Akun Saya</a>
             <div class="menu-label">Publik</div>
             <a href="/">Website Publik</a>
         </nav>

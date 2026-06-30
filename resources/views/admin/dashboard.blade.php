@@ -54,9 +54,12 @@
             <a href="{{ route('admin.cashiers') }}">Manajemen Kasir</a>
             <a href="{{ route('admin.website-orders') }}">Pesanan Website</a>
             <a href="{{ route('admin.invoices') }}">Invoice</a>
+            <a href="{{ route('admin.purchase-order.index') }}">Purchase Order</a>
             <div class="menu-label">Analitik</div>
             <a href="{{ route('admin.reports') }}">Laporan</a>
             <a href="{{ route('admin.ai') }}">AI Analytics</a>
+            <div class="menu-label">Pengaturan</div>
+            <a href="{{ route('admin.account') }}">Akun Saya</a>
             <div class="menu-label">Publik</div>
             <a href="{{ route('home') }}">Website Publik</a>
         </nav>
@@ -67,27 +70,30 @@
             <form method="POST" action="{{ route('admin.logout') }}" style="margin-left:auto">@csrf<button class="btn btn-outline" type="submit">Logout</button></form>
         </div>
         <div class="content">
-            @if($lowStock->count())
-                <div id="lowStockAlert" class="alert alert-danger">
-                    <div class="dashboard-alert-action">
-                        <div>
-                            <strong><span id="lowStockCount">{{ $lowStock->count() }}</span> produk perlu restock.</strong>
-                            <span id="lowStockText">{{ $lowStock->take(4)->map(fn($x) => $x->name.' '.$x->variant_name.' tinggal '.$x->stock.' pack')->join(', ') }}{{ $lowStock->count() > 4 ? ', dan lainnya' : '' }}</span>
-                        </div>
-                        <a class="btn btn-outline" href="{{ route('admin.inventory') }}">Buat PO / Pesan Ke Supplier</a>
-                    </div>
+            <div class="dashboard-alert-action">
+                <div>
+                    <strong><span id="lowStockCount">{{ $lowStock->count() }}</span> produk perlu restock.</strong>
+                    <span id="lowStockText">
+                        {{ $lowStock->take(4)->map(fn($x) => $x->name.' '.$x->variant_name.' tinggal '.$x->stock.' pack')->join(', ') }}
+                        {{ $lowStock->count() > 4 ? ', dan lainnya' : '' }}
+                    </span>
                 </div>
-            @else
-                <div id="lowStockAlert" class="alert alert-danger" style="display:none">
-                    <div class="dashboard-alert-action">
-                        <div>
-                            <strong><span id="lowStockCount">0</span> produk perlu restock.</strong>
-                            <span id="lowStockText"></span>
-                        </div>
-                        <a class="btn btn-outline" href="{{ route('admin.inventory') }}">Buat PO / Pesan Ke Supplier</a>
-                    </div>
-                </div>
-            @endif
+
+                <form method="POST" action="{{ url('/admin/purchase-order/generate') }}">
+                    @csrf
+
+                    @foreach($lowStockProducts as $item)
+                        <input type="hidden" name="items[{{ $loop->index }}][product_id]" value="{{ $item->id }}">
+                        <input type="hidden" name="items[{{ $loop->index }}][qty]" value="{{ $item->minimum_stock * 2 }}">
+                    @endforeach
+
+                    <button
+                        type="submit"
+                        style="background:#ff4d4f;color:white;padding:10px 15px;border-radius:8px;border:none;cursor:pointer;">
+                        Pesan Sekarang
+                    </button>
+                </form>
+            </div>
 
             <div class="card" style="display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:20px;background:linear-gradient(135deg,#fff8f0,#ffffff);border-color:#ffd4a3">
                 <div>

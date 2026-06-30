@@ -229,15 +229,15 @@
             <h3>Amplang Tifanny</h3>
             <p>Camilan khas Kalimantan dengan rasa gurih, renyah, dan cocok untuk semua momen.</p>
             <div class="socials">
-                <a href="#" aria-label="Instagram">IG</a>
-                <a href="#" aria-label="Facebook">FB</a>
-                <a href="#" aria-label="TikTok">TT</a>
+                <a href="https://www.instagram.com/p/DYwlRjUT9fK/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ==" aria-label="Instagram">IG</a>
+                <a href="https://www.instagram.com/p/DYwlRjUT9fK/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ==" aria-label="Facebook">FB</a>
+                <a href="https://www.instagram.com/p/DYwlRjUT9fK/?utm_source=ig_web_copy_link&igsh=NTc4MTIwNjQ2YQ==" aria-label="TikTok">TT</a>
             </div>
         </div>
         <div>
             <h3>Alamat Produksi</h3>
             <p>Pontianak, Kalimantan Barat</p>
-            <div class="map-box">Google Maps Placeholder</div>
+            <div class="map-box"><iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.81779947117!2d109.31334707496457!3d-0.02927699997043135!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e1d58e4f7ce56fd%3A0x8316702d681f801!2sKomp.%20Suwignyo%20Permai.%201!5e0!3m2!1sen!2sid!4v1782659813918!5m2!1sen!2sid" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
         </div>
         <div>
             <h3>Hubungi Kami</h3>

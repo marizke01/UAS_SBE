@@ -30,6 +30,7 @@
             <a href="{{ route('cashier.pos') }}" class="{{ request()->routeIs('cashier.pos') ? 'active' : '' }}">Point of Sales</a>
             <a href="{{ route('cashier.history') }}" class="{{ request()->routeIs('cashier.history') ? 'active' : '' }}">Riwayat Transaksi</a>
             <a href="{{ route('cashier.stock') }}" class="{{ request()->routeIs('cashier.stock') ? 'active' : '' }}">Monitoring Stok</a>
+            <a href="{{ route('cashier.account') }}" class="{{ request()->routeIs('cashier.account') ? 'active' : '' }}">Akun Saya</a>
             <div class="cashier-menu-label">Publik</div>
             <a href="{{ route('home') }}">Website Publik</a>
             <form method="POST" action="{{ route('cashier.logout') }}" style="margin-top:12px">
